@@ -332,6 +332,7 @@ class _AiAssessmentPageState extends State<AiAssessmentPage> {
     );
   }
 
+  // Complete the implementation of the _buildAssessmentMessage method
   Widget _buildAssessmentMessage(ChatMessage message, AiAssessmentState state) {
     final assessment = message.assessment!;
 
@@ -343,50 +344,182 @@ class _AiAssessmentPageState extends State<AiAssessmentPage> {
         border: Border.all(color: AppColors.primary.withOpacity(0.5)),
       ),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-      // Header
-      Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-      ),
-      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.psychology,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'AI Mood Assessment',
-              style: AppTextStyles.heading4.copyWith(
-                color: AppColors.primary,
+          // Header
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
               ),
             ),
-          ),
-          // Show different actions based on state
-          if (state is AssessmentGenerated)
-            TextButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text('Save'),
-              onPressed: () {
-                context.read<AiAssessmentBloc>().add(
-                  SaveAiAssessment(assessment: assessment),
-                );
-              },
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.psychology,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'AI Mood Assessment',
+                    style: AppTextStyles.heading4.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                // Show different actions based on state
+                if (state is AssessmentGenerated)
+                  TextButton.icon(
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save'),
+                    onPressed: () {
+                      context.read<AiAssessmentBloc>().add(
+                        SaveAiAssessment(assessment: assessment),
+                      );
+                    },
+                  ),
+                if (state is AssessmentSaved)
+                  const Chip(
+                    label: Text('Saved'),
+                    backgroundColor: AppColors.success,
+                    labelStyle: TextStyle(color: Colors.white),
+                  ),
+              ],
             ),
-          if (state is AssessmentSaved)
-            const Chip(
-              label: Text('Saved'),
-              backgroundColor: AppColors.success,
-              labelStyle: TextStyle(color: Colors.white),
+          ),
+
+          // Scale values
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mood Assessment',
+                  style: AppTextStyles.labelLarge,
+                ),
+                const SizedBox(height: 12),
+                ...assessment.scaleValues.map((scaleValue) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _getMoodColor(scaleValue),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            scaleValue.value.toString(),
+                            style: AppTextStyles.labelLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                scaleValue.scaleName ?? 'Unknown Scale',
+                                style: AppTextStyles.labelMedium.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (scaleValue.description != null)
+                                Text(
+                                  scaleValue.description!,
+                                  style: AppTextStyles.bodySmall,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+
+          // Other assessment info
+          if (assessment.comment != null || assessment.sleepHours != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (assessment.sleepHours != null) ...[
+                    Text(
+                      'Sleep',
+                      style: AppTextStyles.labelLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.bedtime_outlined,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${assessment.sleepHours!.toStringAsFixed(1)} hours',
+                          style: AppTextStyles.bodyMedium,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (assessment.comment != null) ...[
+                    Text(
+                      'Assessment Notes',
+                      style: AppTextStyles.labelLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      assessment.comment!,
+                      style: AppTextStyles.bodyMedium,
+                    ),
+                  ],
+                ],
+              ),
             ),
         ],
       ),
-    ),
+    );
+  }
+
+// Helper method to get color based on mood value
+  Color _getMoodColor(MoodScaleValue scale) {
+    // This is a simplified version - ideally, you would want to use the scale's min/max values
+    final normalizedValue = scale.value / 13;
+
+    if (normalizedValue < 0.15) {
+      return AppColors.moodDepressionDark;
+    } else if (normalizedValue < 0.3) {
+      return AppColors.moodDepressionMedium;
+    } else if (normalizedValue < 0.45) {
+      return AppColors.moodDepressionLight;
+    } else if (normalizedValue < 0.55) {
+      return AppColors.moodNeutral;
+    } else if (normalizedValue < 0.7) {
+      return AppColors.moodPositiveLight;
+    } else if (normalizedValue < 0.85) {
+      return AppColors.moodPositiveMedium;
+    } else if (normalizedValue < 0.95) {
+      return AppColors.moodPositiveHigh;
+    } else {
+      return AppColors.moodManic;
+    }
+  }
+}

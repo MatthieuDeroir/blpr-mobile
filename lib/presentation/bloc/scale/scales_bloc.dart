@@ -1,11 +1,13 @@
+// Add these imports at the top of the file
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mood_tracker/domain/entities/scale.dart';
 import 'package:mood_tracker/domain/usecases/scale/create_scale.dart';
 import 'package:mood_tracker/domain/usecases/scale/delete_scale.dart';
-import 'package:mood_tracker/domain/usecases/scale/get_scales.dart';
 import 'package:mood_tracker/domain/usecases/scale/update_scale.dart';
 import 'package:mood_tracker/presentation/bloc/scale/scales_event.dart';
 import 'package:mood_tracker/presentation/bloc/scale/scales_state.dart';
+
+import '../../../domain/entities/scale.dart';
+import '../../../domain/usecases/scale/get_scales.dart';
 
 class ScalesBloc extends Bloc<ScalesEvent, ScalesState> {
   final GetScales getScales;

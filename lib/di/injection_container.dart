@@ -13,6 +13,7 @@ import 'package:mood_tracker/domain/usecases/auth/login_user.dart';
 import 'package:mood_tracker/domain/usecases/auth/register_user.dart';
 import 'package:mood_tracker/presentation/bloc/auth/auth_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../presentation/bloc/scale/formula_bloc.dart';
 
 import '../presentation/bloc/ai/ai_assessment_bloc.dart';
 import '../presentation/bloc/mood/mood_entries_bloc.dart';
@@ -84,6 +85,7 @@ Future<void> init() async {
     ),
   );
 
+  // Replace this segment in your injection_container.dart:
   sl.registerFactory(
         () => FormulaBloc(
       getFormulas: sl(),
