@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:mood_tracker/core/theme/app_colors.dart';
 import 'package:mood_tracker/core/theme/app_text_styles.dart';
+import 'package:mood_tracker/domain/entities/mood_entry.dart';
+import 'package:mood_tracker/presentation/bloc/mood/mood_entries_bloc.dart';
+import 'package:mood_tracker/presentation/bloc/mood/mood_entries_event.dart';
+import 'package:mood_tracker/presentation/bloc/mood/mood_entries_state.dart';
 import 'package:mood_tracker/presentation/widgets/common/loading_indicator.dart';
 import 'package:mood_tracker/presentation/widgets/mood/mood_entry_card.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -16,72 +22,79 @@ class _MoodEntriesPageState extends State<MoodEntriesPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.week;
-  bool _isLoading = false;
   bool _showCalendar = true;
-
-  // TODO: Replace with data from bloc
-  final List<Map<String, dynamic>> _mockEntries = [
-    {
-      'id': '1',
-      'date': 'Today, 10:30 AM',
-      'stabilityScore': 75.0,
-      'mainScale': 'Mood',
-      'mainScaleValue': 8,
-      'comment': 'Feeling pretty good today, work went well.',
-    },
-    {
-      'id': '2',
-      'date': 'Yesterday, 9:15 PM',
-      'stabilityScore': 65.0,
-      'mainScale': 'Mood',
-      'mainScaleValue': 7,
-      'comment': 'Slightly tired but otherwise okay.',
-    },
-    {
-      'id': '3',
-      'date': 'Mar 15, 2:45 PM',
-      'stabilityScore': 45.0,
-      'mainScale': 'Mood',
-      'mainScaleValue': 5,
-      'comment': 'Stressful day at work, feeling a bit overwhelmed.',
-    },
-    {
-      'id': '4',
-      'date': 'Mar 14, 8:30 AM',
-      'stabilityScore': 35.0,
-      'mainScale': 'Mood',
-      'mainScaleValue': 3,
-      'comment': 'Slept poorly, feeling very low energy and irritable.',
-    },
-    {
-      'id': '5',
-      'date': 'Mar 13, 7:00 PM',
-      'stabilityScore': 82.0,
-      'mainScale': 'Mood',
-      'mainScaleValue': 9,
-      'comment': 'Great day! Accomplished a lot and feeling energized.',
-    },
-  ];
+  final ScrollController _scrollController = ScrollController();
+  final Map<DateTime, List<MoodEntry>> _eventsByDay = {};
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    _loadEntries();
+
+    // Load initial entries
+    context.read<MoodEntriesBloc>().add(const LoadMoodEntries(limit: 20));
+
+    // Setup scroll controller for pagination
+    _scrollController.addListener(_onScroll);
   }
 
-  void _loadEntries() {
-    // TODO: Load entries from bloc
-    setState(() {
-      _isLoading = true;
-    });
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
 
-    // Simulate API call
-    Future.delayed(const Duration(milliseconds: 500), () {
-      setState(() {
-        _isLoading = false;
-      });
-    });
+  void _onScroll() {
+    if (_isBottom) {
+      context.read<MoodEntriesBloc>().add(const LoadMoreMoodEntries(limit: 10));
+    }
+  }
+
+  bool get _isBottom {
+    if (!_scrollController.hasClients) return false;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    return currentScroll >= (maxScroll * 0.9);
+  }
+
+  void _groupEntriesByDay(List<MoodEntry> entries) {
+    _eventsByDay.clear();
+
+    for (final entry in entries) {
+      final day = DateTime(
+        entry.entryDate.year,
+        entry.entryDate.month,
+        entry.entryDate.day,
+      );
+
+      if (_eventsByDay[day] == null) {
+        _eventsByDay[day] = [];
+      }
+
+      _eventsByDay[day]!.add(entry);
+    }
+  }
+
+  List<MoodEntry> _getEntriesForDay(DateTime day) {
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+    return _eventsByDay[normalizedDay] ?? [];
+  }
+
+  void _filterByDate(DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+    context.read<MoodEntriesBloc>().add(
+      FilterMoodEntriesByDate(
+        startDate: startOfDay,
+        endDate: endOfDay,
+      ),
+    );
+  }
+
+  void _resetFilter() {
+    context.read<MoodEntriesBloc>().add(const LoadMoodEntries(limit: 20));
   }
 
   @override
@@ -90,70 +103,106 @@ class _MoodEntriesPageState extends State<MoodEntriesPage> {
       children: [
         // Calendar
         if (_showCalendar)
-          Card(
-            margin: const EdgeInsets.all(8),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                calendarFormat: _calendarFormat,
-                selectedDayPredicate: (day) {
-                  return isSameDay(_selectedDay, day);
-                },
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                  });
-                  _loadEntries();
-                },
-                onFormatChanged: (format) {
-                  setState(() {
-                    _calendarFormat = format;
-                  });
-                },
-                onPageChanged: (focusedDay) {
-                  _focusedDay = focusedDay;
-                },
-                // Event loader
-                eventLoader: (day) {
-                  // TODO: Return actual events for this day
-                  return [];
-                },
-                calendarStyle: CalendarStyle(
-                  markersMaxCount: 3,
-                  todayDecoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  selectedDecoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
+          BlocBuilder<MoodEntriesBloc, MoodEntriesState>(
+            builder: (context, state) {
+              if (state is MoodEntriesLoaded) {
+                _groupEntriesByDay(state.entries);
+              }
+
+              return Card(
+                margin: const EdgeInsets.all(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TableCalendar(
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    calendarFormat: _calendarFormat,
+                    selectedDayPredicate: (day) {
+                      return isSameDay(_selectedDay, day);
+                    },
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        _focusedDay = focusedDay;
+                      });
+
+                      // Filter entries by selected day
+                      _filterByDate(selectedDay);
+                    },
+                    onFormatChanged: (format) {
+                      setState(() {
+                        _calendarFormat = format;
+                      });
+                    },
+                    onPageChanged: (focusedDay) {
+                      _focusedDay = focusedDay;
+                    },
+                    // Event loader
+                    eventLoader: (day) {
+                      return _getEntriesForDay(day);
+                    },
+                    calendarStyle: CalendarStyle(
+                      markersMaxCount: 3,
+                      todayDecoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      selectedDecoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      markerDecoration: const BoxDecoration(
+                        color: AppColors.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    headerStyle: HeaderStyle(
+                      titleCentered: true,
+                      formatButtonShowsNext: false,
+                      formatButtonDecoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      formatButtonTextStyle: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
                 ),
-                headerStyle: HeaderStyle(
-                  titleCentered: true,
-                  formatButtonShowsNext: false,
-                  formatButtonDecoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  formatButtonTextStyle: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
+              );
+            },
           ),
 
-        // Calendar toggle button
+        // Calendar toggle button and filter indicator
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              BlocBuilder<MoodEntriesBloc, MoodEntriesState>(
+                builder: (context, state) {
+                  if (state is MoodEntriesLoaded && state.filteredByDate) {
+                    return Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            state.startDate != null
+                                ? 'Filtered: ${DateFormat('MMM d, yyyy').format(state.startDate!)}'
+                                : '',
+                            style: AppTextStyles.labelMedium,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: _resetFilter,
+                            tooltip: 'Clear filter',
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const Spacer();
+                },
+              ),
               TextButton.icon(
                 onPressed: () {
                   setState(() {
@@ -172,23 +221,82 @@ class _MoodEntriesPageState extends State<MoodEntriesPage> {
 
         // Entries list
         Expanded(
-          child: _isLoading
-              ? const Center(child: LoadingIndicator())
-              : _mockEntries.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _mockEntries.length,
-            itemBuilder: (context, index) {
-              final entry = _mockEntries[index];
-              return MoodEntryCard(
-                id: entry['id'],
-                date: entry['date'],
-                stabilityScore: entry['stabilityScore'],
-                mainScale: entry['mainScale'],
-                mainScaleValue: entry['mainScaleValue'],
-                comment: entry['comment'],
-              );
+          child: BlocBuilder<MoodEntriesBloc, MoodEntriesState>(
+            builder: (context, state) {
+              if (state is MoodEntriesLoading) {
+                return const Center(child: LoadingIndicator());
+              } else if (state is MoodEntriesError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: AppColors.error.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading mood entries',
+                        style: AppTextStyles.heading3,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        state.message,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: () {
+                          context.read<MoodEntriesBloc>().add(const LoadMoodEntries());
+                        },
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                );
+              } else if (state is MoodEntriesLoaded) {
+                if (state.entries.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    context.read<MoodEntriesBloc>().add(RefreshMoodEntries());
+                    return;
+                  },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: state.entries.length + (state.hasReachedMax ? 0 : 1),
+                    itemBuilder: (context, index) {
+                      if (index >= state.entries.length) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      final entry = state.entries[index];
+                      return MoodEntryCard(
+                        entry: entry,
+                        onTap: () {
+                          Navigator.of(context).pushNamed('/mood/${entry.id}');
+                        },
+                        onDelete: () {
+                          _showDeleteConfirmation(context, entry.id);
+                        },
+                      );
+                    },
+                  ),
+                );
+              }
+
+              return const Center(child: LoadingIndicator());
             },
           ),
         ),
@@ -229,5 +337,32 @@ class _MoodEntriesPageState extends State<MoodEntriesPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context, String entryId) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('Are you sure you want to delete this entry? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      context.read<MoodEntriesBloc>().add(DeleteMoodEntryEvent(id: entryId));
+    }
   }
 }

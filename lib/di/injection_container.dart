@@ -14,6 +14,10 @@ import 'package:mood_tracker/domain/usecases/auth/register_user.dart';
 import 'package:mood_tracker/presentation/bloc/auth/auth_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../presentation/bloc/ai/ai_assessment_bloc.dart';
+import '../presentation/bloc/mood/mood_entries_bloc.dart';
+import '../presentation/bloc/scale/scales_bloc.dart';
+
 final sl = GetIt.instance;
 
 Future<void> init() async {
@@ -59,4 +63,43 @@ Future<void> init() async {
       authRepository: sl(),
     ),
   );
+
+  // Add this to your existing injection_container.dart file
+
+// BLoCs
+  sl.registerFactory(
+        () => MoodEntriesBloc(
+      getMoodEntries: sl(),
+      deleteMoodEntry: sl(),
+      moodEntryRepository: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+        () => ScalesBloc(
+      getScales: sl(),
+      createScale: sl(),
+      updateScale: sl(),
+      deleteScale: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+        () => FormulaBloc(
+      getFormulas: sl(),
+      getActiveFormula: sl(),
+      createFormula: sl(),
+      updateFormula: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+        () => AiAssessmentBloc(
+      chatWithAi: sl(),
+      generateAssessment: sl(),
+      saveAssessment: sl(),
+    ),
+  );
+
+
 }

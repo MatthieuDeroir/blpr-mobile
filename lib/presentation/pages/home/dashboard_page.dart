@@ -5,12 +5,27 @@ import 'package:mood_tracker/core/theme/app_colors.dart';
 import 'package:mood_tracker/core/theme/app_text_styles.dart';
 import 'package:mood_tracker/presentation/bloc/auth/auth_bloc.dart';
 import 'package:mood_tracker/presentation/bloc/auth/auth_state.dart';
+import 'package:mood_tracker/presentation/bloc/mood/mood_entries_bloc.dart';
+import 'package:mood_tracker/presentation/bloc/mood/mood_entries_event.dart';
+import 'package:mood_tracker/presentation/bloc/mood/mood_entries_state.dart';
 import 'package:mood_tracker/presentation/widgets/common/loading_indicator.dart';
 import 'package:mood_tracker/presentation/widgets/mood/mood_chart.dart';
 import 'package:mood_tracker/presentation/widgets/mood/mood_entry_card.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({Key? key}) : super(key: key);
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Load mood entries when the dashboard is initialized
+    context.read<MoodEntriesBloc>().add(const LoadMoodEntries(limit: 5));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,30 +82,44 @@ class DashboardPage extends StatelessWidget {
                   style: AppTextStyles.heading3,
                 ),
                 const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const SizedBox(
-                          height: 200,
-                          child: MoodChart(),
+                BlocBuilder<MoodEntriesBloc, MoodEntriesState>(
+                  builder: (context, state) {
+                    if (state is MoodEntriesLoaded) {
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: 200,
+                                child: MoodChart(
+                                  entries: state.entries,
+                                  period: ChartPeriod.week,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pushNamed('/mood');
+                                    },
+                                    child: const Text('View All'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pushNamed('/mood');
-                              },
-                              child: const Text('View All'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                      );
+                    } else {
+                      return const SizedBox(
+                        height: 200,
+                        child: Center(child: LoadingIndicator()),
+                      );
+                    }
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -101,25 +130,46 @@ class DashboardPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
-                // TODO: Replace with actual data from MoodEntry bloc
-                const MoodEntryCard(
-                  id: '1',
-                  date: 'Today, 10:30 AM',
-                  stabilityScore: 75,
-                  mainScale: 'Mood',
-                  mainScaleValue: 8,
-                  comment: 'Feeling pretty good today, work went well.',
+                BlocBuilder<MoodEntriesBloc, MoodEntriesState>(
+                  builder: (context, state) {
+                    if (state is MoodEntriesLoaded) {
+                      if (state.entries.isEmpty) {
+                        return const Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(
+                              child: Text('No entries yet. Add your first mood entry!'),
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Show the most recent entries
+                      return Column(
+                        children: state.entries.take(2).map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: MoodEntryCard(
+                              entry: entry,
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/mood/${entry.id}');
+                              },
+                              onDelete: () {
+                                // Show delete confirmation
+                                _showDeleteConfirmation(context, entry.id);
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    } else if (state is MoodEntriesLoading) {
+                      return const Center(child: LoadingIndicator());
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  },
                 ),
-                const SizedBox(height: 8),
-                const MoodEntryCard(
-                  id: '2',
-                  date: 'Yesterday, 9:15 PM',
-                  stabilityScore: 65,
-                  mainScale: 'Mood',
-                  mainScaleValue: 7,
-                  comment: 'Slightly tired but otherwise okay.',
-                ),
-                const SizedBox(height: 16),
+
                 Center(
                   child: TextButton(
                     onPressed: () {
@@ -137,6 +187,32 @@ class DashboardPage extends StatelessWidget {
           );
         }
       },
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String entryId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('Are you sure you want to delete this entry? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.read<MoodEntriesBloc>().add(DeleteMoodEntryEvent(id: entryId));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 }

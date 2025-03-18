@@ -129,8 +129,8 @@ class MoodScaleSlider extends StatelessWidget {
   }
 
   String _getLevelDescription(int value) {
-    // TODO: Replace with actual descriptions from the backend
-    // This is a simplified version for now
+    // This would ideally come from the scale level descriptions
+    // This is a simplified version for demonstration
     final totalLevels = maxValue - minValue + 1;
     final normalizedValue = (value - minValue) / (totalLevels - 1);
 
@@ -154,7 +154,7 @@ class MoodScaleSlider extends StatelessWidget {
   }
 
   Color _getValueColor(int value) {
-    // Maps the value to a color
+    // Maps the value to a color based on its position in the scale
     final totalLevels = maxValue - minValue + 1;
     final normalizedValue = (value - minValue) / (totalLevels - 1);
 
