@@ -2,7 +2,7 @@ class ApiConstants {
   ApiConstants._();
 
   // Base URL
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'http://10.0.2.2:3000';
 
   // Authentication Endpoints
   static const String register = '/api/users/register';
@@ -17,7 +17,7 @@ class ApiConstants {
   static const String moodEntries = '/api/mood-entries';
   static String moodEntry(String id) => '$moodEntries/$id';
 
-  // Stability Formula Endpoints
+  // Stability Formula Endpoint
   static const String formulas = '/api/stability-formulas';
   static const String activeFormula = '$formulas/active';
   static String formula(String id) => '$formulas/$id';

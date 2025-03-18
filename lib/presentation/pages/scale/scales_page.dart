@@ -106,42 +106,48 @@ class _ScalesPageState extends State<ScalesPage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Tab bar
-        TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          labelStyle: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold),
-          unselectedLabelStyle: AppTextStyles.labelLarge,
-          tabs: const [
-            Tab(text: 'Default Scales'),
-            Tab(text: 'Custom Scales'),
-          ],
-        ),
-
-        // Tab content
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              // Default scales tab
-              _isLoading
-                  ? const Center(child: LoadingIndicator())
-                  : _buildScalesList(_defaultScales, isEditable: false),
-
-              // Custom scales tab
-              _isLoading
-                  ? const Center(child: LoadingIndicator())
-                  : _customScales.isEmpty
-                  ? _buildEmptyState()
-                  : _buildScalesList(_customScales, isEditable: true),
-            ],
+    // Wrap everything in a Scaffold to provide the Material context needed for TabBar
+    return Scaffold(
+      body: Column(
+        children: [
+          // Tab bar
+          Material(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.primary,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              labelStyle: AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.bold),
+              unselectedLabelStyle: AppTextStyles.labelLarge,
+              tabs: const [
+                Tab(text: 'Default Scales'),
+                Tab(text: 'Custom Scales'),
+              ],
+            ),
           ),
-        ),
-      ],
+
+          // Tab content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Default scales tab
+                _isLoading
+                    ? const Center(child: LoadingIndicator())
+                    : _buildScalesList(_defaultScales, isEditable: false),
+
+                // Custom scales tab
+                _isLoading
+                    ? const Center(child: LoadingIndicator())
+                    : _customScales.isEmpty
+                    ? _buildEmptyState()
+                    : _buildScalesList(_customScales, isEditable: true),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -160,9 +166,56 @@ class _ScalesPageState extends State<ScalesPage> with SingleTickerProviderStateM
           isActive: scale['isActive'],
           isDefault: scale['isDefault'],
           isEditable: isEditable,
+          onEdit: isEditable ? () {
+            Navigator.of(context).pushNamed('/scale/edit', arguments: scale['id']);
+          } : null,
+          onDelete: isEditable ? () {
+            // Add your delete logic here
+            _showDeleteConfirmation(context, scale['id']);
+          } : null,
         );
       },
     );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context, String scaleId) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Scale'),
+        content: const Text('Are you sure you want to delete this scale? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      // TODO: Implement delete functionality via bloc
+      // For now, just remove from the local list for demo
+      setState(() {
+        _customScales.removeWhere((scale) => scale['id'] == scaleId);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Scale deleted'),
+            backgroundColor: AppColors.info,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildEmptyState() {

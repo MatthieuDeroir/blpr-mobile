@@ -1,3 +1,4 @@
+// lib/domain/entities/mood_scale_value.dart
 import 'package:equatable/equatable.dart';
 
 class MoodScaleValue extends Equatable {
